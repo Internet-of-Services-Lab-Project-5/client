@@ -5,9 +5,15 @@ import { useEffect, useState } from "react";
 type Props = {
   children: React.ReactNode;
   isVisible: boolean;
+  onCloseClick: () => void;
 } & React.ComponentProps<typeof Container>;
 
-export const Modal: React.FC<Props> = ({ children, isVisible, ...props }) => {
+export const NotificationPopup: React.FC<Props> = ({
+  children,
+  isVisible,
+  onCloseClick,
+  ...props
+}) => {
   const [isMounted, setIsMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -17,7 +23,7 @@ export const Modal: React.FC<Props> = ({ children, isVisible, ...props }) => {
       setTimeout(() => setIsOpen(true), 0);
     } else {
       setIsOpen(false);
-      setTimeout(() => setIsMounted(false), 600);
+      setTimeout(() => setIsMounted(false), 800);
     }
   }, [isVisible]);
 
@@ -25,6 +31,7 @@ export const Modal: React.FC<Props> = ({ children, isVisible, ...props }) => {
     isMounted ? (
       <Container isVisible={isOpen} {...props}>
         {children}
+        <Close onClick={onCloseClick} />
       </Container>
     ) : null,
     document.getElementById("root")!
@@ -37,18 +44,45 @@ export const Modal: React.FC<Props> = ({ children, isVisible, ...props }) => {
 
 const Container = styled.div<{ isVisible: boolean }>`
   position: fixed;
-  z-index: 200;
+  z-index: 100;
   transform: translate(0, 0);
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  height: 100svh;
-  background-color: rgba(0, 0, 0, 0.5);
+  bottom: 20px;
+  right: 20px;
+  min-width: 40vw;
+  min-height: 50px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background-color: #444;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transform: ${({ isVisible }) => !isVisible && `translateY(100vh)`};
+  transition: transform 0.5s ease-in-out;
+`;
+
+const Close = styled.div`
+  transform: rotate(45deg);
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  height: 20px;
+  width: 20px;
   display: flex;
   justify-content: center;
   align-items: center;
-  opacity: 0;
-  opacity: ${({ isVisible }) => isVisible && 1};
-  transition: opacity 0.3s ease-in-out;
+  border-radius: 50%;
+  background-color: #777;
+  font-weight: bold;
+  cursor: pointer;
+  transform: rotate(45deg);
+  transition: background-color 0.15s ease-in-out;
+
+  :hover {
+    background-color: red;
+  }
+
+  ::before {
+    content: "+";
+  }
 `;

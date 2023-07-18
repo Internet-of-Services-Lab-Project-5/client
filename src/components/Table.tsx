@@ -6,7 +6,12 @@ type Props = {
   showHeader?: boolean;
 } & React.ComponentProps<typeof Container>;
 
-export const Table: React.FC<Props> = ({ columns, content, showHeader, ...props }) => {
+export const Table: React.FC<Props> = ({
+  columns,
+  content,
+  showHeader,
+  ...props
+}) => {
   return (
     <Container showHeader={showHeader} {...props}>
       <table>
@@ -68,5 +73,6 @@ const Container = styled.div<{ showHeader?: boolean }>`
 `;
 
 const Row = styled.tr<{ useSecondaryColor?: boolean }>`
-  background-color: ${({ useSecondaryColor }) => useSecondaryColor && "#e6e6fa63"};
+  background-color: ${({ useSecondaryColor }) =>
+    useSecondaryColor && "#e6e6fa63"};
 `;

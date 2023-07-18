@@ -1,26 +1,73 @@
 import styled from "styled-components/macro";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useContext } from "react";
 import { Button, TextField } from "@mui/material";
+import { getCandidate, propose, voteForCandidate } from "../requests";
+import { AirlineContext } from "../contexts/AirlineContext";
 
 export const CandidateInterface: React.FC = () => {
-  const [candidate, setCandidate] = useState<string>("");
+  const [candidate, setCandidate] = useState<string>();
+
   const [vote, setVote] = useState<boolean>();
+  const [pending, setPending] = useState<boolean>(false);
+
   const [airline, setAirline] = useState<string>("");
   const [ethAddress, setEthAddress] = useState<string>("");
   const [iExecAddress, setIExecAddress] = useState<string>("");
 
-  const hasVoted = useMemo(() => vote !== undefined, [vote]);
-  // const canPropose = useMemo(() => !candidate, [candidate]);
-  const canPropose = false;
+  const { candidate: candidateFromContext, eventType } =
+    useContext(AirlineContext);
 
-  const handlePropose = () => {
+  const hasVoted = useMemo(() => vote !== undefined, [vote]);
+
+  const canPropose = useMemo(() => candidate === undefined, [candidate]);
+
+  const handlePropose = async () => {
     if (airline && ethAddress && iExecAddress) {
-      //TODO: propose to the smart contract
+      await propose(airline, ethAddress, iExecAddress);
+      setPending(true);
       setAirline("");
       setEthAddress("");
       setIExecAddress("");
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      const fetchedCandidate = await getCandidate();
+      setCandidate(fetchedCandidate);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (vote !== undefined) {
+      (async () => {
+        await voteForCandidate(vote);
+      })();
+    }
+  }, [vote]);
+
+  useEffect(() => {
+    if (candidateFromContext) {
+      setCandidate(candidateFromContext);
+      setPending(false);
+      setVote(undefined);
+    }
+  }, [candidateFromContext]);
+
+  useEffect(() => {
+    if (eventType === "added" || eventType === "rejected") {
+      setCandidate(undefined);
+      setVote(undefined);
+    }
+  }, [eventType]);
+
+  if (pending) {
+    return (
+      <Container>
+        <Text>Proposing candidate...</Text>
+      </Container>
+    );
+  }
 
   if (canPropose)
     return (
@@ -58,7 +105,8 @@ export const CandidateInterface: React.FC = () => {
       <Vote>
         {hasVoted ? (
           <Text>
-            You voted <strong>{vote ? "yes" : "no"}</strong>. The voting is still in progress.
+            You voted <strong>{vote ? "yes" : "no"}</strong>. The voting is
+            still in progress.
           </Text>
         ) : (
           <>

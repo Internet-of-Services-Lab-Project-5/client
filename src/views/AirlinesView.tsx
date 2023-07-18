@@ -1,19 +1,27 @@
 import styled from "styled-components/macro";
 import { Box, View, CandidateInterface, Table } from "../components";
-// import { Requests } from "../Requests";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
+import { getAirlines } from "../requests";
+import { AirlineContext } from "../contexts/AirlineContext";
 
 type Props = React.ComponentProps<typeof View>;
 
-// const api = new Requests();
-
 export const AirlinesView: React.FC<Props> = (props) => {
   const [partners, setPartners] = useState<string[]>([]);
+  const { airlines } = useContext(AirlineContext);
 
   useEffect(() => {
-    // TODO: fetch airlines from server -> smart contract
-    setPartners(["Lufthansa", "Qatar Air", "Air France"]);
+    (async () => {
+      const fetchedAirlines = await getAirlines();
+      setPartners(fetchedAirlines);
+    })();
   }, []);
+
+  useEffect(() => {
+    if (airlines) {
+      setPartners(airlines);
+    }
+  }, [airlines]);
 
   return (
     <View {...props}>
@@ -34,9 +42,9 @@ export const AirlinesView: React.FC<Props> = (props) => {
           </Label>
         </StyledBox>
         <Explaination>
-          The list of <strong>participating airlines</strong> will be displayed here. Airlines
-          listed here can search for unruly passengers, vote for a candidate airline, and propose
-          one.
+          The list of <strong>participating airlines</strong> will be displayed
+          here. Airlines listed here can search for unruly passengers, vote for
+          a candidate airline, and propose one.
         </Explaination>
       </Section>
     </View>

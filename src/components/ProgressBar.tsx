@@ -3,11 +3,11 @@ import styled from "styled-components/macro";
 
 type Props = {
   progress?: number;
-};
+} & React.ComponentProps<typeof Container>;
 
-export const ProgressBar: React.FC<Props> = ({ progress }) => {
+export const ProgressBar: React.FC<Props> = ({ progress, ...props }) => {
   return (
-    <Container>
+    <Container {...props}>
       <LinearProgress
         sx={{ height: 15, borderRadius: 10 }}
         color="inherit"
@@ -22,6 +22,4 @@ export const ProgressBar: React.FC<Props> = ({ progress }) => {
 /*                                   STYLES                                   */
 /* -------------------------------------------------------------------------- */
 
-const Container = styled.div`
-  color: white;
-`;
+const Container = styled.div``;

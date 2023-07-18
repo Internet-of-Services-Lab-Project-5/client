@@ -1,8 +1,15 @@
 import styled from "styled-components/macro";
-import { Box, View, Table, PassengerAddForm } from "../components";
+import { Box, View, Table, PassengerAddForm, CSVDropZone } from "../components";
 import { useState, useEffect } from "react";
 import { Button } from "@mui/material";
-import { getPassengers } from "../requests";
+import {
+  addPassenger,
+  addPassengers,
+  createTable,
+  dropTable,
+  getPassengers,
+  updateDataset,
+} from "../requests";
 
 export type PassengerDBEntry = {
   id?: number;
@@ -17,11 +24,67 @@ type Props = React.ComponentProps<typeof View>;
 
 export const YourPassengersView: React.FC<Props> = (props) => {
   const [passengers, setPassengers] = useState<PassengerDBEntry[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [upToDate, setUpToDate] = useState(false);
 
-  const upToDate = false; //fetch somehow
+  const handleAdd = async (data: PassengerDBEntry) => {
+    await addPassenger(
+      data.first_name,
+      data.last_name,
+      data.birthdate,
+      data.incident,
+      data.incident_date
+    );
+    const passengers = await getPassengers();
+    setPassengers(passengers);
+  };
 
-  const handleAdd = (data: PassengerDBEntry) => {
-    console.log(data); //TODO: send to server
+  const handleCSV = async (headers: string[], lines: string[][]) => {
+    const firstNameIndex = headers.indexOf("first_name");
+    const lastNameIndex = headers.indexOf("last_name");
+    const birthDateIndex = headers.indexOf("birthdate");
+    const incidentIndex = headers.indexOf("incident");
+    const incidentDateIndex = headers.indexOf("incident_date");
+
+    if (
+      firstNameIndex === -1 ||
+      lastNameIndex === -1 ||
+      birthDateIndex === -1 ||
+      incidentIndex === -1 ||
+      incidentDateIndex === -1
+    ) {
+      alert("Invalid column headers.");
+      return;
+    }
+
+    const passengers = lines
+      .map((line) => ({
+        firstname: line[firstNameIndex],
+        lastname: line[lastNameIndex],
+        birthdate: line[birthDateIndex],
+        incident: line[incidentIndex],
+        incidentDate: line[incidentDateIndex],
+      }))
+      .filter(
+        (p) =>
+          p.firstname &&
+          p.lastname &&
+          p.birthdate &&
+          p.incident &&
+          p.incidentDate
+      );
+    await dropTable();
+    await createTable();
+    await addPassengers(passengers);
+    const fetchedPassengers = await getPassengers();
+    setPassengers(fetchedPassengers);
+  };
+
+  const handleDatasetUpdate = async () => {
+    setIsUpdating(true);
+    await updateDataset();
+    setUpToDate(true);
+    setIsUpdating(false);
   };
 
   useEffect(() => {
@@ -31,7 +94,10 @@ export const YourPassengersView: React.FC<Props> = (props) => {
     })();
   }, []);
 
-  console.log(passengers);
+  useEffect(() => {
+    //fetch uptodat
+    setUpToDate(false);
+  }, [passengers]);
 
   return (
     <View {...props}>
@@ -40,43 +106,61 @@ export const YourPassengersView: React.FC<Props> = (props) => {
           <PassengerAddForm onAddClick={handleAdd} />
         </StyledBox>
         <Explaination>
-          Here, you can <strong>vote</strong> for a potential partner airline or{" "}
-          <strong>propose</strong> one if there is currently no candidate.
+          Add passengers to your local database. Note, that this does not
+          automatically update the iExec dataset.
         </Explaination>
       </Section>
       <Section>
         <StyledTableBox>
-          {upToDate ? (
-            <PositiveText>Everything is up to date!</PositiveText>
-          ) : (
-            <StyledButton color="info" variant="outlined">
-              Update on iExec
-            </StyledButton>
-          )}
-          <Table
-            columns={[
-              "Id",
-              "First name",
-              "Last name",
-              "Date of birth",
-              "Incident date",
-              "Incident",
-            ]}
-            content={passengers.map((p) => [
-              p.id,
-              p["first_name"],
-              p["last_name"],
-              p.birthdate,
-              p["incident_date"],
-              p.incident,
-            ])}
-            showHeader
-          />
+          <StyledCSVDropZone
+            placeholder="No passengers yet"
+            onReadContent={handleCSV}
+          >
+            {!!passengers.length ? (
+              <>
+                {upToDate ? (
+                  <PositiveText>Everything is up to date!</PositiveText>
+                ) : (
+                  <StyledButton
+                    color="info"
+                    variant="outlined"
+                    disabled={isUpdating}
+                    onClick={handleDatasetUpdate}
+                  >
+                    {isUpdating ? "...updating" : "Update on iExec"}
+                  </StyledButton>
+                )}
+
+                <StyledTable
+                  columns={[
+                    "Id",
+                    "First name",
+                    "Last name",
+                    "Date of birth",
+                    "Incident date",
+                    "Incident",
+                  ]}
+                  content={passengers.map((p) => [
+                    p.id,
+                    p["first_name"],
+                    p["last_name"],
+                    p.birthdate,
+                    p["incident_date"],
+                    p.incident,
+                  ])}
+                  showHeader
+                />
+              </>
+            ) : (
+              <></>
+            )}
+          </StyledCSVDropZone>
         </StyledTableBox>
         <Explaination>
-          The list of your <strong>unruly passengers</strong> will be displayed here. If the dataset
-          provided to iExec is different to what is displayed here, you can <strong>update</strong>{" "}
-          it by clicking the button.
+          The list of your <strong>unruly passengers</strong> will be displayed
+          here. If the dataset provided to iExec is different to what is
+          displayed here, you can <strong>update</strong> it by clicking the
+          button.
         </Explaination>
       </Section>
     </View>
@@ -129,6 +213,19 @@ const PositiveText = styled.div`
   align-items: center;
 `;
 
-export const StyledButton = styled(Button)`
+const StyledButton = styled(Button)`
   align-self: flex-end;
+`;
+
+const StyledTable = styled(Table)`
+  margin-top: 10px;
+  td,
+  th {
+    white-space: nowrap;
+  }
+`;
+
+const StyledCSVDropZone = styled(CSVDropZone)`
+  display: flex;
+  flex-direction: column;
 `;

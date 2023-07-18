@@ -1,32 +1,56 @@
 import styled from "styled-components/macro";
-import { Box, CSVDropZone, PassengerSearchForm, Table, View } from "../components";
-import { useState } from "react";
+import {
+  Box,
+  CSVDropZone,
+  PassengerSearchForm,
+  Table,
+  View,
+  Modal,
+  SearchProgress,
+  SearchResults,
+} from "../components";
+import { useMemo, useState } from "react";
 import { Button } from "@mui/material";
-import { Modal } from "../components/Modal";
-
-export type Passenger = {
-  firstName: string;
-  lastName: string;
-  birthDate: string;
-};
+import { Passenger } from "../types";
+import { initSearch } from "../requests";
 
 type Props = React.ComponentProps<typeof View>;
 
 export const CheckPassengersView: React.FC<Props> = (props) => {
   const [hasClicked, setHasClicked] = useState(false);
-
   const [passengers, setPassengers] = useState<Passenger[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [statusKey, setStatusKey] = useState<string>();
+  const [results, setResults] = useState<any[] | undefined>();
 
-  async function initSearch(firstName: string, lastName: string, birthDate: string) {
-    //   setHasClicked(true);
-    //   onInitStart && onInitStart();
-    //   const dealId = await api.initSearch(firstName, lastName, birthDate);
-    //   console.log("DealId: ", dealId);
-    //   onDealStart && onDealStart(dealId);
+  async function search(
+    firstName: string,
+    lastName: string,
+    birthdate: string
+  ) {
+    const passengerList =
+      firstName && lastName && birthdate
+        ? [
+            { first_name: firstName, last_name: lastName, birthdate },
+            ...passengers,
+          ]
+        : passengers;
+    handleAdd(firstName, lastName, birthdate);
+    setHasClicked(true);
+    setShowModal(true);
+    console.log("Search started", Date.now());
+    const statusKey = await initSearch(passengerList);
+    console.log("StatusKey: ", statusKey);
+    setStatusKey(statusKey);
+    setTimeout(() => setHasClicked(false), 3000);
   }
 
-  const handleAdd = (firstName: string, lastName: string, birthdate: string) => {
-    setPassengers((prev) => [{ firstName, lastName, birthDate: birthdate }, ...prev]);
+  const handleAdd = (
+    first_name: string,
+    last_name: string,
+    birthdate: string
+  ) => {
+    setPassengers((prev) => [{ first_name, last_name, birthdate }, ...prev]);
   };
 
   const handleRemove = (index: number) => {
@@ -38,7 +62,11 @@ export const CheckPassengersView: React.FC<Props> = (props) => {
     const lastNameIndex = headers.indexOf("last_name");
     const birthDateIndex = headers.indexOf("birthdate");
 
-    if (firstNameIndex === -1 || lastNameIndex === -1 || birthDateIndex === -1) {
+    if (
+      firstNameIndex === -1 ||
+      lastNameIndex === -1 ||
+      birthDateIndex === -1
+    ) {
       alert("Invalid column headers.");
       return;
     }
@@ -47,8 +75,33 @@ export const CheckPassengersView: React.FC<Props> = (props) => {
       const firstName = values[firstNameIndex];
       const lastName = values[lastNameIndex];
       const birthDate = values[birthDateIndex];
-      if (firstName && lastName && birthDate) handleAdd(firstName, lastName, birthDate);
+      if (firstName && lastName && birthDate)
+        handleAdd(firstName, lastName, birthDate);
     }
+  };
+
+  const handleModalClose = () => {
+    setShowModal(false);
+    setTimeout(() => (setStatusKey(undefined), setResults(undefined)), 500);
+  };
+
+  const handleResults = (results: any[]) => {
+    console.log("Search finished", Date.now());
+    const comparedResult = passengers.map((passenger) => {
+      const wasUnruly = results.some(
+        (record) =>
+          record['"first_name"'] === `"${passenger["first_name"]}"` &&
+          record['"last_name"'] === `"${passenger["last_name"]}"` &&
+          record['"birthdate"'] === `"${passenger["birthdate"]}"`
+      );
+      return {
+        firstName: passenger["first_name"],
+        lastName: passenger["last_name"],
+        birthdate: passenger.birthdate,
+        wasUnruly,
+      };
+    });
+    setResults(comparedResult);
   };
 
   return (
@@ -58,16 +111,17 @@ export const CheckPassengersView: React.FC<Props> = (props) => {
           <Form>
             <PassengerSearchForm
               disabled={hasClicked}
-              onSearchClick={initSearch}
+              onSearchClick={search}
               onAddClick={handleAdd}
             />
           </Form>
         </StyledBox>
         <Explaination>
-          Enter the data of the passenger you want to check and click on <strong>search</strong>
+          Enter the data of the passenger you want to check and click on{" "}
+          <strong>search</strong>
           <br />
-          or click on the <strong>+</strong> button to add passengers to the list below first and
-          check multiple passengers at once.
+          or click on the <strong>+</strong> button to add passengers to the
+          list below first and check multiple passengers at once.
         </Explaination>
       </Section>
       <Section>
@@ -76,7 +130,8 @@ export const CheckPassengersView: React.FC<Props> = (props) => {
             onReadContent={handleCSV}
             placeholder={
               <>
-                Drag and drop a <strong>CSV</strong> file here to add multiple passengers at once.
+                Drag and drop a <strong>CSV</strong> file here to add multiple
+                passengers at once.
               </>
             }
           >
@@ -84,11 +139,13 @@ export const CheckPassengersView: React.FC<Props> = (props) => {
               <Table
                 columns={["First Name", "Last Name", "Birthdate", "Options"]}
                 content={passengers.map((passenger, index) => [
-                  passenger.firstName,
-                  passenger.lastName,
-                  passenger.birthDate,
+                  passenger["first_name"],
+                  passenger["last_name"],
+                  passenger.birthdate,
                   <OptionsContainer>
-                    <Remove onClick={() => handleRemove(index)}>{"Remove"}</Remove>
+                    <Remove onClick={() => handleRemove(index)}>
+                      {"Remove"}
+                    </Remove>
                   </OptionsContainer>,
                 ])}
               />
@@ -96,15 +153,31 @@ export const CheckPassengersView: React.FC<Props> = (props) => {
           </CSVDropZone>
         </StyledBox>
         <Explaination>
-          You can add multiple passengers at once by dragging and dropping a <strong>CSV</strong>.
+          You can add multiple passengers at once by dragging and dropping a{" "}
+          <strong>CSV</strong>.
           <br />
-          Note, that the CSV needs to have columns named <strong>first_name</strong>,{" "}
-          <strong>last_name</strong> and <strong>birthdate</strong>. The expected date format is{" "}
+          Note, that the CSV needs to have columns named{" "}
+          <strong>first_name</strong>, <strong>last_name</strong> and{" "}
+          <strong>birthdate</strong>. The expected date format is{" "}
           <strong>DD/MM/YYYY</strong>.
         </Explaination>
       </Section>
-      <Modal>haha</Modal>
-      {/* <Modal open={true}>haha</Modal> */}
+      <Modal isVisible={showModal}>
+        <ModalBox>
+          {results === undefined ? (
+            <SearchProgress
+              statusKey={statusKey || ""}
+              onResultsLoaded={handleResults}
+              onError={() => console.error("Something went wrong.")}
+            />
+          ) : (
+            <>
+              <SearchResults results={results} />
+              <Close onClick={handleModalClose} />
+            </>
+          )}
+        </ModalBox>
+      </Modal>
     </View>
   );
 };
@@ -153,5 +226,38 @@ const Section = styled.section`
     ${Explaination} {
       opacity: 1;
     }
+  }
+`;
+
+const ModalBox = styled(Box)`
+  position: relative;
+  height: 60vh;
+  height: 60svh;
+  width: 70vw;
+`;
+
+const Close = styled.div`
+  transform: rotate(45deg);
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  height: 20px;
+  width: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  background-color: #ddd;
+  font-weight: bold;
+  cursor: pointer;
+  transform: rotate(45deg);
+  transition: background-color 0.15s ease-in-out;
+
+  :hover {
+    background-color: red;
+  }
+
+  ::before {
+    content: "+";
   }
 `;
